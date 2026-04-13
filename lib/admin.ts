@@ -1,15 +1,58 @@
+import { SignJWT, jwtVerify } from "jose";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { isAdminEmail } from "@/lib/admin-access";
 import { connectToDatabase } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { ImageModel } from "@/models/Image";
 import { UserModel } from "@/models/User";
 
+export const ADMIN_PORTAL_COOKIE = "nile_admin_portal";
+
+function getAdminPortalSecret() {
+  const secret =
+    process.env.ADMIN_PORTAL_PASSWORD ||
+    process.env.JWT_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    "nile-admin-portal";
+
+  return new TextEncoder().encode(secret);
+}
+
+export function getAdminPortalPassword() {
+  return process.env.ADMIN_PORTAL_PASSWORD || "nileadmin123";
+}
+
+export async function signAdminPortalSession() {
+  return new SignJWT({ scope: "admin_portal" })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(getAdminPortalSecret());
+}
+
+export async function getAdminPortalSession() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(ADMIN_PORTAL_COOKIE)?.value;
+
+  if (!token) {
+    return false;
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, getAdminPortalSecret());
+    return payload.scope === "admin_portal";
+  } catch {
+    return false;
+  }
+}
+
 export async function requireAdminSession() {
   const user = await getSession();
+  const hasPortalAccess = await getAdminPortalSession();
 
-  if (!user || user.role !== "admin") {
-    redirect("/");
+  if ((!user || user.role !== "admin") && !hasPortalAccess) {
+    redirect("/admin-login");
   }
 
   return user;
