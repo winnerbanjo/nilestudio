@@ -171,10 +171,27 @@ export async function POST(req: Request) {
     }
 
     if (!imageBase64) {
-      console.log("⚠️ All providers failed, returning original");
+      console.log("⚠️ All providers failed, returning error response");
 
-      imageBase64 = base64Image;
-      provider = "none";
+      const openaiError =
+        typeof errors.openai === "string" ? errors.openai : null;
+
+      const message = openaiError?.includes("billing_hard_limit_reached")
+        ? "Image editing is currently unavailable because the OpenAI project billing limit has been reached."
+        : "Image editing is currently unavailable. Please try again after checking the AI provider configuration.";
+
+      return Response.json(
+        {
+          success: false,
+          error: message,
+          provider: "none",
+          errors,
+          creditsRemaining: creditState?.creditsRemaining ?? null,
+          creditLimit: creditState?.creditLimit ?? null,
+          creditPeriod: creditState?.creditPeriod ?? null,
+        },
+        { status: 503 },
+      );
     }
 
     console.log("=== GENERATION END ===");

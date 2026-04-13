@@ -138,7 +138,9 @@ export default function EditorPage() {
       setShowRetry(true);
       setGenerationProgress(0);
       console.error("Generate request failed:", error);
-      toast.error("Generation failed. Try again.");
+      toast.error(
+        error instanceof Error ? error.message : "Generation failed. Try again.",
+      );
     } finally {
       window.setTimeout(() => {
         setGenerating(false);
