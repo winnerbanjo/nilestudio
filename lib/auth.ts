@@ -2,6 +2,7 @@ import { compare, hash } from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
+import { isAdminEmail } from "@/lib/admin-access";
 import type { AuthUser } from "@/lib/types";
 
 export const SESSION_COOKIE = "nile_session";
@@ -38,6 +39,10 @@ export async function verifySessionToken(token: string) {
     id: String(payload.id),
     name: String(payload.name),
     email: String(payload.email),
+    role:
+      payload.role === "admin" || isAdminEmail(String(payload.email))
+        ? "admin"
+        : "user",
     creditsRemaining: Number(payload.creditsRemaining ?? 0),
     creditLimit: Number(payload.creditLimit ?? 100),
     creditPeriod: String(payload.creditPeriod ?? ""),

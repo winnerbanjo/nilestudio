@@ -232,6 +232,36 @@ export function getOptionConfig(
   return optionsByAction[action].find((item) => item.id === option) || null;
 }
 
+export function resolveLegacyStyle(style?: string) {
+  if (!style) {
+    return {
+      action: "clean-studio" as const,
+      option: "white-studio" as const,
+    };
+  }
+
+  const normalized = style.trim().toLowerCase();
+
+  if (normalized.includes("beige")) {
+    return {
+      action: "clean-studio" as const,
+      option: "beige-studio" as const,
+    };
+  }
+
+  if (normalized.includes("dark")) {
+    return {
+      action: "clean-studio" as const,
+      option: "dark-luxury" as const,
+    };
+  }
+
+  return {
+    action: "clean-studio" as const,
+    option: "white-studio" as const,
+  };
+}
+
 export function buildPrompt(action: StudioAction, option: StudioOption) {
   const optionConfig = getOptionConfig(action, option);
 
@@ -263,6 +293,8 @@ QUALITY RULES:
 - Keep the full head, hair, shoulders, arms, and lower body in frame whenever they are present in the source image
 - Never crop into the top of the head, chin, or key garment areas
 - Expand the composition naturally if needed to preserve the full subject
+- Prefer a zoomed-out composition over a tight crop
+- Keep the complete look visible from head to below the knees whenever the source image allows it
 - Avoid distortion, warped limbs, duplicated features, broken hands, altered clothing construction, and unnatural shadows
 
 OUTPUT REQUIREMENT:
@@ -301,6 +333,7 @@ FRAMING RULES:
 - Keep the full subject comfortably in frame
 - Preserve extra headroom above the head
 - Do not crop the top of the head or cut into the body
+- Keep the entire outfit visible and centered with clean margins around the subject
 
 FINAL LOOK:
 A crisp premium Shopify-quality studio product image.`;
@@ -370,6 +403,7 @@ STRICT RULES:
 - Do not add accessories or props
 - Keep the pose exactly as close as possible to the original
 - Keep the full head and body comfortably in frame with natural headroom
+- Keep the complete outfit visible without tight cropping
 
 PRIORITY:
 The outfit must remain identical to the source image and the new face must look naturally integrated.
@@ -380,7 +414,7 @@ A believable premium fashion ecommerce photo with the same outfit and body, but 
       return `${masterPrompt}
 
 TASK:
-Transform this product image into ${optionConfig.promptLabel}.
+Place the same single model into ${optionConfig.promptLabel}.
 
 STRICT RULES:
 - Keep the same single model as the source image
@@ -391,14 +425,20 @@ STRICT RULES:
 - Do not create cartoonish, surreal, or overly dramatic scenes
 - Keep styling minimal, aspirational, and brand-safe
 - Do not clutter the frame
+- Do not change the face, body, or identity
+- Do not change the hairstyle
+- Do not crop the head, shoulders, or lower garment
+- Keep the subject fully visible with breathing room around the body
 
 SCENE RULES:
-- Create a realistic occasion setting around the same model and outfit
-- Natural human pose, but keep it close to the source image
+- Create a realistic premium occasion setting around the same model and outfit
+- Keep the model standing or posed in a natural commercial fashion pose close to the source image
 - Clean premium composition
 - Soft polished lighting
 - Editorial but commercially usable
 - The image must still look like the same person wearing the same clothing in a different real-life setting
+- Use background storytelling only; the outfit and model remain the hero
+- The occasion must feel subtle, upscale, and believable rather than theatrical
 
 FINAL LOOK:
 A realistic premium occasion photo of the same model in the same outfit, placed into the selected scene.`;
@@ -423,6 +463,7 @@ export function getGenerationSize(action: StudioAction) {
 export function getGenerationQuality(action: StudioAction) {
   switch (action) {
     case "change-color":
+    case "create-campaign":
       return "high" as const;
     default:
       return "medium" as const;

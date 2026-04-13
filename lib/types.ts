@@ -32,6 +32,7 @@ export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  role: "admin" | "user";
   creditsRemaining: number;
   creditLimit: number;
   creditPeriod: string;

@@ -40,6 +40,14 @@ export function AppHeader() {
         <div className="flex items-center gap-3">
           {isAuthenticated && user ? (
             <>
+              {user.role === "admin" ? (
+                <Link
+                  href="/admin"
+                  className="hidden items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-[#0A0A0A] transition hover:bg-gray-50 sm:inline-flex"
+                >
+                  Admin
+                </Link>
+              ) : null}
               <div className="hidden rounded-xl border border-gray-200 px-3 py-2 text-left lg:block">
                 <p className="text-sm font-medium text-[#0A0A0A]">
                   {user.creditsRemaining} / {user.creditLimit} credits

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { isAdminEmail } from "@/lib/admin-access";
 import { connectToDatabase } from "@/lib/db";
 import { getNormalizedUserById } from "@/lib/credits";
 import { setSessionCookie, signSession, verifyPassword } from "@/lib/auth";
+import type { AuthUser } from "@/lib/types";
 import { UserModel } from "@/models/User";
 
 export async function POST(request: Request) {
@@ -47,10 +49,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const sessionUser = {
+    const sessionUser: AuthUser = {
       id: String(normalizedUser._id),
       name: normalizedUser.name,
       email: normalizedUser.email,
+      role:
+        normalizedUser.role === "admin" || isAdminEmail(normalizedUser.email)
+          ? "admin"
+          : "user",
       creditsRemaining: normalizedUser.creditsRemaining,
       creditLimit: normalizedUser.creditLimit,
       creditPeriod: normalizedUser.creditPeriod,

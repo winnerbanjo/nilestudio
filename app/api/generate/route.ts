@@ -2,12 +2,15 @@ import { openai } from "@/lib/openai";
 import { geminiModel } from "@/lib/gemini";
 import { getSession } from "@/lib/auth";
 import { refundUserCredit, reserveUserCredit } from "@/lib/credits";
+import { connectToDatabase } from "@/lib/db";
 import {
   buildPrompt,
   getGenerationQuality,
   getGenerationSize,
+  resolveLegacyStyle,
 } from "@/lib/studio-config";
 import type { StudioAction, StudioOption } from "@/lib/types";
+import { ImageModel } from "@/models/Image";
 
 export async function POST(req: Request) {
   let creditedUserId: string | null = null;
@@ -28,6 +31,11 @@ export async function POST(req: Request) {
     if (!imageUrl) {
       throw new Error("Missing imageUrl.");
     }
+
+    const resolvedSelection =
+      action && option ? { action, option } : resolveLegacyStyle(style);
+    const resolvedAction = resolvedSelection.action;
+    const resolvedOption = resolvedSelection.option;
 
     const sessionUser = await getSession();
     let creditState:
@@ -67,6 +75,8 @@ export async function POST(req: Request) {
     console.log("INPUT:", {
       action,
       option,
+      resolvedAction,
+      resolvedOption,
       style,
       imageUrlType: typeof imageUrl === "string" && imageUrl.startsWith("data:")
         ? "data-url"
@@ -90,21 +100,11 @@ export async function POST(req: Request) {
     );
 
     const prompt =
-      action && option
-        ? buildPrompt(action, option)
-        : `You are a high-end ecommerce photo retoucher.
-
-TASK:
-Replace the background with ${style || "a clean studio background"}.
-Keep subject and clothing exactly the same.
-Improve lighting, sharpness, and subject separation only.
-
-FINAL LOOK:
-A crisp premium ecommerce studio image.`;
+      buildPrompt(resolvedAction, resolvedOption);
 
     console.log("PROMPT PREVIEW:", prompt.slice(0, 400));
-    const size = action ? getGenerationSize(action) : "1024x1536";
-    const quality = action ? getGenerationQuality(action) : "medium";
+    const size = getGenerationSize(resolvedAction);
+    const quality = getGenerationQuality(resolvedAction);
     console.log("OPENAI SIZE:", size);
     console.log("OPENAI QUALITY:", quality);
 
@@ -180,9 +180,30 @@ A crisp premium ecommerce studio image.`;
     console.log("=== GENERATION END ===");
     console.log("PROVIDER USED:", provider);
 
+    let imageId: string | null = null;
+
+    try {
+      await connectToDatabase();
+      const savedImage = await ImageModel.create({
+        originalUrl: imageUrl,
+        generatedUrl: `data:image/png;base64,${imageBase64}`,
+        userId: sessionUser?.id,
+        action: resolvedAction,
+        option: resolvedOption,
+        provider,
+        changed: provider === "openai",
+      });
+      imageId = String(savedImage._id);
+    } catch (saveError) {
+      console.error("⚠️ SAVE FAILED:");
+      console.error(saveError);
+      errors.save = saveError instanceof Error ? saveError.message : saveError;
+    }
+
     return Response.json({
       success: true,
       image: `data:image/png;base64,${imageBase64}`,
+      id: imageId,
       provider,
       changed: provider === "openai",
       errors,

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { isAdminEmail } from "@/lib/admin-access";
 import { connectToDatabase } from "@/lib/db";
 import { MONTHLY_FREE_CREDITS } from "@/lib/credits";
 import { hashPassword, setSessionCookie, signSession } from "@/lib/auth";
+import type { AuthUser } from "@/lib/types";
 import { UserModel } from "@/models/User";
 
 export async function POST(request: Request) {
@@ -34,14 +36,16 @@ export async function POST(request: Request) {
       name: name.trim(),
       email: normalizedEmail,
       passwordHash: await hashPassword(password),
+      role: isAdminEmail(normalizedEmail) ? "admin" : "user",
       creditsRemaining: MONTHLY_FREE_CREDITS,
       creditLimit: MONTHLY_FREE_CREDITS,
     });
 
-    const sessionUser = {
+    const sessionUser: AuthUser = {
       id: String(user._id),
       name: user.name,
       email: user.email,
+      role: user.role,
       creditsRemaining: user.creditsRemaining,
       creditLimit: user.creditLimit,
       creditPeriod: user.creditPeriod,
